@@ -4,11 +4,6 @@ import pandas as pd
 import logging
 import os
 from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Import necessary modules
 from data.data_fetching import DataFetcher
 from data.data_processing import process_bond_data, process_derivative_data
 from models.bond_pricing import BondPricing
@@ -18,130 +13,117 @@ from models.swap_pricing import SwapPricing
 from optimization.portfolio_optimization import PortfolioOptimization
 from visualization.visual_analysis import plot_metrics
 
+# Load environment variables
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# 📌 Hide API keys using environment variables
-fred_api_key = os.getenv("FRED_API_KEY")
-alpha_vantage_api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
-swap_api_key = os.getenv("SWAP_API_KEY")
-
 # Streamlit UI
 st.title("📊 Portfolio Optimization App")
+st.write(
+    "This app helps users optimize financial portfolios by analyzing assets like "
+    "bonds, options, futures, and swaps. It fetches financial data, calculates pricing, "
+    "and applies optimization techniques to improve portfolio allocation."
+)
 
-st.write("""
-This app helps you construct an **optimized investment portfolio** by analyzing **bonds, options, futures, and swaps**.
-It calculates the **optimal asset allocation** to **maximize returns while minimizing risk** using **Modern Portfolio Theory (MPT)**.
-""")
+# Sidebar for API key inputs (Hidden using environment variables)
+fred_api_key = os.getenv("FRED_API_KEY", "")
+alpha_vantage_api_key = os.getenv("ALPHA_VANTAGE_API_KEY", "")
+swap_api_key = os.getenv("SWAP_API_KEY", "")
 
 # Fetch Data Button
-if st.button("Fetch Data and Optimize Portfolio"):
+if st.button("Fetch Data & Optimize"):
+    st.write("📡 Fetching financial data...")
+
     data_fetcher = DataFetcher(fred_api_key, alpha_vantage_api_key, swap_api_key)
 
-    logger.info("Fetching bond yields...")
     bond_data = data_fetcher.fetch_bond_yields()
-
-    logger.info("Fetching options data...")
     options_data = data_fetcher.fetch_options_data("IBM")
-
-    logger.info("Fetching futures data...")
     futures_data = data_fetcher.fetch_futures_data("IBM")
-
-    logger.info("Fetching swap data...")
     swap_data = data_fetcher.fetch_swap_rates()
 
-    # Ensure swap_data is valid
-    if swap_data is None:
-        logger.warning("Swap rates not implemented, using empty DataFrame.")
-        swap_data = pd.DataFrame()
-
     # Process Data
-    logger.info("Processing bond data...")
     processed_bond_data = process_bond_data(bond_data)
+    processed_derivative_data = process_derivative_data(
+        {"options": options_data, "futures": futures_data, "swaps": swap_data}
+    )
 
-    logger.info("Processing derivative data...")
-    processed_derivative_data = process_derivative_data({
-        "options": options_data,
-        "futures": futures_data,
-        "swaps": swap_data
-    })
+    # Extract Asset Details
+    bond_name = processed_bond_data.iloc[0].get("name", "Generic Bond") if not processed_bond_data.empty else "Generic Bond"
+    option_name = "IBM Option"
+    futures_name = "IBM Futures"
+    swap_name = "Swap Contract"
+
+    asset_labels = [bond_name, option_name, futures_name, swap_name]
 
     # Initialize Pricing Models
-    logger.info("Initializing pricing models...")
+    st.write("🧮 Calculating prices...")
+
     bond_pricing = BondPricing(1000, 0.05, 10, 0.03)
     option_pricing = OptionPricing(100, 100, 1, 0.03, 0.20)
     futures_pricing = FuturesPricing(100, 100, 1, 0.03, 0.20)
     swap_pricing = SwapPricing(swap_data)
 
     # Calculate Prices
-    logger.info("Calculating bond prices...")
     bond_prices = bond_pricing.price()
-
-    logger.info("Calculating option prices...")
     option_prices = {
         "Black-Scholes Call": option_pricing.black_scholes_call(),
         "Black-Scholes Put": option_pricing.black_scholes_put(),
         "Binomial Tree Call": option_pricing.binomial_tree_option(steps=100, option_type="call"),
         "Binomial Tree Put": option_pricing.binomial_tree_option(steps=100, option_type="put"),
     }
-
-    logger.info("Calculating futures prices...")
     futures_prices = futures_pricing.calculate_futures_price()
-
-    logger.info("Calculating swap prices...")
     swap_prices = swap_pricing.calculate_prices()
 
-    # ✅ Fix: Ensure swap_prices is a float
+    # Convert swap_prices to a usable float value
     if isinstance(swap_prices, dict):
         swap_prices = list(swap_prices.values())[0] if swap_prices else 0.0
 
-    # ✅ Fix: Compute returns using percentage changes
+    # Extract correct option price
     option_price = option_prices["Black-Scholes Call"]
-    asset_prices = np.array([bond_prices, option_price, futures_prices, swap_prices])
 
-    # Convert asset prices to **log returns** (avoids extreme outliers)
-    asset_returns = np.log(asset_prices / np.roll(asset_prices, 1))[1:]
+    # Convert asset prices to a NumPy array
+    asset_returns = np.array([bond_prices, option_price, futures_prices, swap_prices])
 
-    # Compute Expected Return (as a percentage)
-    optimized_weights = np.random.dirichlet(np.ones(len(asset_returns)), size=1)[0]  # Random initial weights
-    expected_return = np.sum(optimized_weights * asset_returns) * 100  # Convert to %
+    # Fix covariance matrix computation
+    if len(asset_returns) > 1:
+        cov_matrix = np.cov(asset_returns)
+    else:
+        cov_matrix = np.array([[np.var(asset_returns)]])
 
-    # Compute Portfolio Volatility (as a percentage)
-    cov_matrix = np.cov(asset_returns)
-    volatility = np.sqrt(np.dot(optimized_weights.T, np.dot(cov_matrix, optimized_weights))) * 100
+    # Portfolio Optimization
+    st.write("📊 Optimizing Portfolio...")
 
-    # Sharpe Ratio Calculation
-    sharpe_ratio = expected_return / volatility if volatility != 0 else 0
+    portfolio_optimizer = PortfolioOptimization(asset_returns, cov_matrix)
+    optimized_results, optimal_weights = portfolio_optimizer.optimize_portfolio()
 
-    # ✅ Fix: Risk Contribution Calculation
-    risk_contributions = np.dot(cov_matrix, optimized_weights) / volatility
-    risk_contributions = risk_contributions * 100  # Convert to %
+    # Ensure optimized weights are in the correct format
+    optimized_weights = np.array(optimized_results[0]).flatten()
+    if len(optimized_weights) != len(asset_labels):
+        optimized_weights = optimized_weights[:len(asset_labels)]
 
-    # Display Portfolio Performance Metrics
-    st.markdown("## 📊 Portfolio Performance Metrics")
+    # Display Results
+    st.header("📊 Optimized Portfolio Weights")
+    df_weights = pd.DataFrame({"Asset": asset_labels, "Weight": optimized_weights})
+    st.dataframe(df_weights)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📈 Expected Portfolio Return", f"{expected_return:.2f}%")
-    col2.metric("📉 Portfolio Volatility (Risk)", f"{volatility:.2f}%")
-    col3.metric("💰 Sharpe Ratio (Risk-Adjusted Return)", f"{sharpe_ratio:.2f}")
+    # Plot Optimized Portfolio
+    plot_metrics(optimized_weights, asset_labels)
 
-    # Display Portfolio Risk Breakdown
-    st.markdown("## ⚖️ Portfolio Risk Breakdown")
-    risk_df = pd.DataFrame({
-        "Asset": ["Bonds", "Options", "Futures", "Swaps"],
-        "Risk Contribution": risk_contributions
-    })
-    st.dataframe(risk_df)
+    # Portfolio Performance Metrics
+    st.header("📈 Portfolio Performance Metrics")
+    expected_return = np.sum(optimized_weights * asset_returns)
+    portfolio_volatility = np.sqrt(np.dot(optimized_weights.T, np.dot(cov_matrix, optimized_weights)))
+    sharpe_ratio = expected_return / portfolio_volatility if portfolio_volatility != 0 else 0
 
-    # Visualize Portfolio Allocation
-    st.markdown("## 📊 Optimized Portfolio Weights")
-    weight_df = pd.DataFrame({
-        "Asset": ["Bonds", "Options", "Futures", "Swaps"],
-        "Weight": optimized_weights * 100  # Convert to percentage
-    })
-    st.dataframe(weight_df)
-    st.bar_chart(weight_df.set_index("Asset"))
+    st.metric("📈 Expected Portfolio Return", f"{expected_return * 100:.2f}%")
+    st.metric("📊 Portfolio Volatility (Risk)", f"{portfolio_volatility * 100:.2f}%")
+    st.metric("💰 Sharpe Ratio (Risk-Adjusted Return)", f"{sharpe_ratio:.2f}")
 
-    # Plot portfolio weights
-    plot_metrics(optimized_weights, ["Bonds", "Options", "Futures", "Swaps"])
+    # Risk Contribution Breakdown
+    st.header("⚖️ Portfolio Risk Breakdown")
+    risk_contribution = optimized_weights * portfolio_volatility
+    df_risk = pd.DataFrame({"Asset": asset_labels, "Risk Contribution": risk_contribution})
+    st.dataframe(df_risk)
