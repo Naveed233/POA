@@ -40,7 +40,6 @@ if st.button("📡 Fetch Data & Optimize"):
         options_data = data_fetcher.fetch_options_data("IBM")
         futures_data = data_fetcher.fetch_futures_data("IBM")
         swap_data = data_fetcher.fetch_swap_rates()
-
         st.write("✅ Data fetched successfully!")
     except Exception as e:
         st.error(f"❌ Error fetching data: {e}")
@@ -64,29 +63,21 @@ if st.button("📡 Fetch Data & Optimize"):
 
     # Initialize Pricing Models with default values
     st.write("🔄 Initializing pricing models...")
-    try:
-        bond_pricing = BondPricing(1000, 0.05, 10, 0.03)
-        option_pricing = OptionPricing(100, 100, 1, 0.03, 0.20)
-        futures_pricing = FuturesPricing(100, 100, 1, 0.03, 0.20)
-        swap_pricing = SwapPricing(swap_data)
-        st.write("✅ Pricing models initialized!")
-    except Exception as e:
-        st.error(f"❌ Error initializing pricing models: {e}")
-        logger.error(f"Error initializing pricing models: {e}")
-        st.stop()
+    bond_pricing = BondPricing(1000, 0.05, 10, 0.03)
+    option_pricing = OptionPricing(100, 100, 1, 0.03, 0.20)
+    futures_pricing = FuturesPricing(100, 100, 1, 0.03, 0.20)
+    swap_pricing = SwapPricing(swap_data)
+
+    st.write("✅ Pricing models initialized!")
 
     # Calculate Prices
     st.write("🔄 Calculating asset prices...")
-    try:
-        bond_prices = bond_pricing.price()
-        option_prices = option_pricing.black_scholes_call()
-        futures_prices = futures_pricing.calculate_futures_price()
-        swap_prices = swap_pricing.calculate_prices()
-        st.write("✅ Price calculations complete!")
-    except Exception as e:
-        st.error(f"❌ Error calculating prices: {e}")
-        logger.error(f"Error calculating prices: {e}")
-        st.stop()
+    bond_prices = bond_pricing.price()
+    option_prices = option_pricing.black_scholes_call()
+    futures_prices = futures_pricing.calculate_futures_price()
+    swap_prices = swap_pricing.calculate_prices()
+
+    st.write("✅ Price calculations complete!")
 
     # Ensure swap_prices is a valid float
     if isinstance(swap_prices, dict):
@@ -94,41 +85,65 @@ if st.button("📡 Fetch Data & Optimize"):
 
     # Prepare data for optimization
     asset_returns = np.array([bond_prices, option_prices, futures_prices, swap_prices])
-
-    if len(asset_returns) > 1:
-        cov_matrix = np.cov(asset_returns)
-    else:
-        cov_matrix = np.array([[np.var(asset_returns)]])
+    cov_matrix = np.cov(asset_returns) if len(asset_returns) > 1 else np.array([[np.var(asset_returns)]])
 
     # Perform Portfolio Optimization
     st.write("🔄 Optimizing portfolio...")
-    try:
-        portfolio_optimizer = PortfolioOptimization(asset_returns, cov_matrix)
-        optimized_results, optimal_weights = portfolio_optimizer.optimize_portfolio()
-        st.write("✅ Portfolio optimization complete!")
-    except Exception as e:
-        st.error(f"❌ Error in portfolio optimization: {e}")
-        logger.error(f"Error in portfolio optimization: {e}")
-        st.stop()
+    portfolio_optimizer = PortfolioOptimization(asset_returns, cov_matrix)
+    optimized_results, optimal_weights = portfolio_optimizer.optimize_portfolio()
+    st.write("✅ Portfolio optimization complete!")
 
-    # Display Optimized Portfolio
-    st.subheader("📈 Optimized Portfolio Weights")
+    # Portfolio Labels
     asset_labels = ["Bonds", "Options", "Futures", "Swaps"]
-
-    # Extract first optimized portfolio weights
-    optimized_weights = optimized_results[0] if optimized_results.ndim == 2 else optimized_results
+    optimized_weights = np.array(optimized_results[0]).flatten()
 
     # Ensure correct length
-    optimized_weights = np.array(optimized_weights).flatten()
     if len(optimized_weights) != len(asset_labels):
         optimized_weights = optimized_weights[:len(asset_labels)]
 
-    # Display Weights as Table
-    df_weights = pd.DataFrame({"Asset": asset_labels, "Weight": optimized_weights})
-    st.dataframe(df_weights)
+    # 📌 Display Portfolio Metrics
+    st.subheader("📊 Portfolio Performance Metrics")
+    expected_return = np.dot(optimized_weights, asset_returns)
+    volatility = np.sqrt(np.dot(optimized_weights.T, np.dot(cov_matrix, optimized_weights)))
+    sharpe_ratio = expected_return / volatility if volatility != 0 else 0
 
-    # Display Weights as Bar Chart
+    # 📌 Show key metrics
+    st.metric(label="📈 Expected Portfolio Return", value=f"{expected_return:.2f}%")
+    st.metric(label="📉 Portfolio Volatility (Risk)", value=f"{volatility:.2f}%")
+    st.metric(label="💰 Sharpe Ratio (Risk-Adjusted Return)", value=f"{sharpe_ratio:.2f}")
+
+    # 📌 Risk Breakdown
+    st.subheader("⚖️ Portfolio Risk Breakdown")
+    df_risk = pd.DataFrame({"Asset": asset_labels, "Risk Contribution": optimized_weights * volatility})
+    st.dataframe(df_risk)
+
+    # 📌 Asset Weights Table & Bar Chart
+    st.subheader("📈 Optimized Portfolio Weights")
+    df_weights = pd.DataFrame({"Asset": asset_labels, "Weight (%)": optimized_weights * 100})
+    st.dataframe(df_weights)
     st.bar_chart(df_weights.set_index("Asset"))
 
-    # Plot Metrics
+    # 📌 Risk-Return Visualization
+    st.subheader("📌 Risk vs. Return Tradeoff")
+    st.write("This graph shows the relationship between risk and return for different asset allocations.")
+
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.scatter(volatility, expected_return, marker="o", color="blue", label="Optimized Portfolio")
+    ax.set_xlabel("Risk (Volatility)")
+    ax.set_ylabel("Expected Return")
+    ax.set_title("Portfolio Risk-Return Tradeoff")
+    ax.legend()
+    st.pyplot(fig)
+
+    # 📌 Summary Insights
+    st.subheader("📢 Portfolio Optimization Summary")
+    st.write("""
+    - 📌 The optimized portfolio maximizes risk-adjusted returns.
+    - 📉 Lower volatility means **less risk** but potentially **lower returns**.
+    - 💰 The **Sharpe Ratio** measures how well the portfolio compensates for risk.
+    - ⚖️ Balancing **risk & return** is key to long-term investment success.
+    """)
+
+    # 📌 Plot Metrics
     plot_metrics(optimized_weights, asset_labels)
