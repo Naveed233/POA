@@ -102,14 +102,16 @@ if st.button("🔍 Fetch Data & Optimize"):
     # Compute Covariance Matrix
     cov_matrix = np.cov(asset_returns) if len(asset_returns) > 1 else np.array([[np.var(asset_returns)]])
 
-    # Portfolio Optimization
+    # Perform Portfolio Optimization
     portfolio_optimizer = PortfolioOptimization(asset_returns, cov_matrix)
-    optimized_results, optimal_weights = portfolio_optimizer.optimize_portfolio()
-
-    # Extract Weights
-    asset_labels = [bond_label, option_label, futures_label, swap_label]
-    optimized_weights = np.array(optimized_results[0]).flatten()
-
+    optimized_results = portfolio_optimizer.optimize_portfolio()
+    
+    # Ensure optimized_results[0] is numerical, extract weights properly
+    if isinstance(optimized_results, dict):  
+        optimized_weights = np.array(list(optimized_results.values())).flatten()
+    else:
+        optimized_weights = np.array(optimized_results[0]).flatten()
+    
     # Ensure correct shape
     if len(optimized_weights) != len(asset_labels):
         optimized_weights = optimized_weights[:len(asset_labels)]
