@@ -71,28 +71,15 @@ class DataFetcher:
             logger.error(f"API Request failed: {str(e)}")
             return pd.DataFrame()
 
-    def fetch_swap_rates(self):
-        """Fetches swap rates from SwapAPI."""
-        url = f"https://api.swapapi.com/v1/swaps?apikey={self.swap_api_key}"
-
+    def fetch_treasury_swaps(self):
+        """Fetch US Treasury interest rates as swap equivalents."""
         try:
-            response = requests.get(url)
+            response = requests.get(self.treasury_api_url)
             response.raise_for_status()
-            data = response.json()
-
-            if "swaps" not in data:
-                logger.error("Invalid swap API response: 'swaps' key missing")
-                return pd.DataFrame()
-
-            df = pd.DataFrame(data["swaps"])
-
-            required_columns = ["currency_pair", "rate", "tenor", "timestamp"]
-            for col in required_columns:
-                if col not in df.columns:
-                    logger.warning(f"Missing column: {col} in swap data")
-
-            logger.info(f"Successfully fetched {len(df)} swap rates")
+            data = response.json()["data"]
+            df = pd.DataFrame(data)
+            df["avg_interest_rate_amt"] = df["avg_interest_rate_amt"].astype(float)
             return df
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Swap API request failed: {e}")
+        except Exception as e:
+            logger.error(f"Error fetching US Treasury swap data: {e}")
             return pd.DataFrame()
