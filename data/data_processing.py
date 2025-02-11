@@ -25,10 +25,11 @@ def process_derivative_data(derivative_data):
     if not futures_data.empty and "4. close" in futures_data.columns:
         futures_data["price"] = futures_data["4. close"].astype(float)
 
-    # Process swaps data
+    # **✅ Fix: Process swaps data correctly**
     if not swaps_data.empty:
+        swaps_data = swaps_data.rename(columns={"avg_interest_rate_amt": "rate"})  # Rename to 'rate'
         swaps_data["rate"] = swaps_data["rate"].astype(float)
-        swaps_data["tenor"] = swaps_data["tenor"].astype(int)
+
 
     return {
         "options": options_data,
