@@ -97,7 +97,20 @@ def main():
 
     # Visualize Metrics
     logger.info("Visualizing optimized portfolio...")
-    plot_metrics(optimized_results)
+    asset_labels = ["Bonds", "Options", "Futures", "Swaps"]
+    # Extract the first optimized portfolio from the results (assuming first row contains best weights)
+    optimized_weights = optimized_results[0]  # Ensure correct slicing
+
+    # Ensure optimized_weights is a 1D array of the right length
+    optimized_weights = np.array(optimized_weights).flatten()
+
+    # Check the shape and fix if necessary
+    if len(optimized_weights) != len(asset_labels):
+        optimized_weights = optimized_weights[:len(asset_labels)]  # Take only required number of assets
+
+    # Plot the metrics
+    plot_metrics(optimized_weights, asset_labels)
+
 
 if __name__ == "__main__":
     main()
