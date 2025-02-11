@@ -5,12 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class DataFetcher:
-    def __init__(self, fred_api_key, alpha_vantage_api_key, swap_api_key):
+    def __init__(self, fred_api_key, alpha_vantage_api_key):
         """Initialize DataFetcher with API keys."""
         self.fred_api_key = fred_api_key
         self.alpha_vantage_api_key = alpha_vantage_api_key
-        self.swap_api_key = swap_api_key  # ✅ FIXED: Now accepting SwapAPI Key
-
     def fetch_bond_yields(self):
         """Fetches bond yields from FRED API."""
         url = f"https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key={self.fred_api_key}&file_type=json"
