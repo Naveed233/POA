@@ -13,7 +13,11 @@ from visualization.visual_analysis import plot_metrics
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
+# Ensure swap_data is valid
+    if swap_data is None:
+        logger.warning("Swap rates not implemented, using empty DataFrame.")
+        swap_data = pd.DataFrame()
+        
 def main():
     # API Keys
     fred_api_key = "d636c702a0f9e3e97f55065da983a21c"
