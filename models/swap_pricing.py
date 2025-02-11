@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-import requests
+import requests 
 
 logger = logging.getLogger(__name__)
 
