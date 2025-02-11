@@ -95,9 +95,13 @@ if st.button("🔍 Fetch Data & Optimize"):
     futures_prices = futures_pricing.calculate_futures_price()
     swap_prices = swap_pricing.calculate_prices()
 
-    # Ensure correct scaling
-    option_price = option_prices
-    asset_returns = np.array([bond_prices, option_price, futures_prices, swap_prices]) / 100  # Convert to % scale
+    # Extract correct numeric values for asset returns
+    option_price = option_prices if isinstance(option_prices, (int, float)) else list(option_prices.values())[0]
+    swap_price = swap_prices if isinstance(swap_prices, (int, float)) else list(swap_prices.values())[0]
+    
+    # Create numerical asset return array
+    asset_returns = np.array([bond_prices, option_price, futures_prices, swap_price]) / 100  # Convert to percentage
+
 
     # Compute Covariance Matrix
     cov_matrix = np.cov(asset_returns) if len(asset_returns) > 1 else np.array([[np.var(asset_returns)]])
