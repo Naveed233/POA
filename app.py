@@ -33,15 +33,19 @@ data_fetcher = DataFetcher(fred_api_key, alpha_vantage_api_key)
 st.subheader("Select Assets for Portfolio")
 
 # **Fetch available options**
-bond_choices = ["US Treasury Bond", "Corporate Bond", "Municipal Bond"]
-option_choices = ["IBM Options", "AAPL Options", "GOOGL Options"]
-futures_choices = ["S&P 500 Futures", "Gold Futures", "Oil Futures"]
-treasury_swaps_df = data_fetcher.fetch_treasury_swaps()
+bond_choices = data_fetcher.fetch_bond_options()  # Fetch top bond choices from API
+option_choices = data_fetcher.fetch_option_symbols()  # Fetch top options
+futures_choices = data_fetcher.fetch_futures_symbols()  # Fetch top futures
+treasury_swaps_df = data_fetcher.fetch_treasury_swaps()  # Fetch Treasury swaps
 
-swap_choices = (
-    treasury_swaps_df["security_desc"].unique().tolist()
-    if not treasury_swaps_df.empty else ["US Treasury Bonds"]
-)
+# **Handle Swap Choices from Treasury API**
+if treasury_swaps_df is not None and not treasury_swaps_df.empty:
+    swap_choices = [
+        f"{row['security_type_desc']} ({row['security_desc']})"
+        for _, row in treasury_swaps_df.iterrows()
+    ]
+else:
+    swap_choices = ["US Treasury Bonds (Default)"]
 
 # **User Selection**
 selected_bond = st.selectbox("📉 Choose a Bond", bond_choices)
@@ -55,12 +59,12 @@ if st.button("🔍 Fetch Data & Optimize"):
 
     # **Fetch Market Data**
     bond_data = data_fetcher.fetch_bond_yields()
-    options_data = data_fetcher.fetch_options_data(selected_option.split(" ")[0])
-    futures_data = data_fetcher.fetch_futures_data(selected_future.split(" ")[0])
+    options_data = data_fetcher.fetch_options_data(selected_option)
+    futures_data = data_fetcher.fetch_futures_data(selected_future)
 
     # **Fetch Swap Rates**
     if treasury_swaps_df is not None and not treasury_swaps_df.empty:
-        swap_data = treasury_swaps_df[treasury_swaps_df["security_desc"] == selected_swap]
+        swap_data = treasury_swaps_df[treasury_swaps_df["security_desc"].str.contains(selected_swap)]
     else:
         swap_data = pd.DataFrame()
 
@@ -68,7 +72,7 @@ if st.button("🔍 Fetch Data & Optimize"):
     if swap_data.empty:
         st.warning("⚠️ No Treasury swap data available. Using default values.")
         swap_data = pd.DataFrame({"security_desc": ["US Treasury Bonds"], "avg_interest_rate_amt": [0.02]})
-    
+
     if "avg_interest_rate_amt" in swap_data.columns:
         swap_data = swap_data.rename(columns={"avg_interest_rate_amt": "rate"})
 
