@@ -31,9 +31,6 @@ st.write("Build an optimized portfolio using **Bonds, Options, Futures, and Swap
 # Initialize DataFetcher
 data_fetcher = DataFetcher(fred_api_key, alpha_vantage_api_key)
 
-# Dropdown Selectors for Each Asset Class
-st.subheader("📌 Select Assets for Portfolio")
-
 # Fetch Treasury Swaps Data
 treasury_swaps_df = data_fetcher.fetch_treasury_swaps()
 
@@ -44,6 +41,7 @@ futures_choices = ["S&P 500 Futures", "Gold Futures", "Oil Futures"]
 swap_choices = treasury_swaps_df["security_desc"].unique().tolist() if not treasury_swaps_df.empty else ["US Treasury Bonds"]
 
 # User Selections
+st.subheader("📌 Select Assets for Portfolio")
 selected_bond = st.selectbox("📉 Choose a Bond", bond_choices)
 selected_option = st.selectbox("📈 Choose an Option", option_choices)
 selected_future = st.selectbox("🛢️ Choose a Future", futures_choices)
@@ -70,10 +68,12 @@ if st.button("🔍 Fetch Data & Optimize"):
         swap_data = swap_data.rename(columns={"avg_interest_rate_amt": "rate"})
 
     # Update Asset Labels
-    bond_label = f"Bonds ({selected_bond})"
-    option_label = f"Options ({selected_option})"
-    futures_label = f"Futures ({selected_future})"
-    swap_label = f"Swaps ({selected_swap})"
+    asset_labels = [
+        f"Bonds ({selected_bond})",
+        f"Options ({selected_option})",
+        f"Futures ({selected_future})",
+        f"Swaps ({selected_swap})"
+    ]
 
     # Process Data
     processed_bond_data = process_bond_data(bond_data)
@@ -99,9 +99,8 @@ if st.button("🔍 Fetch Data & Optimize"):
     option_price = option_prices if isinstance(option_prices, (int, float)) else list(option_prices.values())[0]
     swap_price = swap_prices if isinstance(swap_prices, (int, float)) else list(swap_prices.values())[0]
     
-    # Create numerical asset return array
-    asset_returns = np.array([bond_prices, option_price, futures_prices, swap_price]) / 100  # Convert to percentage
-
+    # Create numerical asset return array (Convert to percentages)
+    asset_returns = np.array([bond_prices, option_price, futures_prices, swap_price]) / 100
 
     # Compute Covariance Matrix
     cov_matrix = np.cov(asset_returns) if len(asset_returns) > 1 else np.array([[np.var(asset_returns)]])
