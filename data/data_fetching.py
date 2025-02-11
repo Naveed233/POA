@@ -9,6 +9,8 @@ class DataFetcher:
         """Initialize DataFetcher with API keys."""
         self.fred_api_key = fred_api_key
         self.alpha_vantage_api_key = alpha_vantage_api_key
+        self.treasury_api_url = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates"
+
     def fetch_bond_yields(self):
         """Fetches bond yields from FRED API."""
         url = f"https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key={self.fred_api_key}&file_type=json"
@@ -74,10 +76,21 @@ class DataFetcher:
         try:
             response = requests.get(self.treasury_api_url)
             response.raise_for_status()
-            data = response.json()["data"]
-            df = pd.DataFrame(data)
-            df["avg_interest_rate_amt"] = df["avg_interest_rate_amt"].astype(float)
+            data = response.json()
+
+            # Ensure the expected 'data' key exists
+            if "data" not in data:
+                logger.error("Unexpected response format: Missing 'data' key")
+                return pd.DataFrame()
+
+            df = pd.DataFrame(data["data"])
+
+            # Ensure key exists before conversion
+            if "avg_interest_rate_amt" in df.columns:
+                df["avg_interest_rate_amt"] = df["avg_interest_rate_amt"].astype(float)
+
+            logger.info(f"Successfully fetched {len(df)} US Treasury swap records")
             return df
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching US Treasury swap data: {e}")
             return pd.DataFrame()
