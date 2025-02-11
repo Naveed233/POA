@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import logging
-import os  # ✅ Import os to access environment variables
+import os
+from dotenv import load_dotenv  # ✅ Import dotenv
 from data.data_fetching import DataFetcher
 from data.data_processing import process_bond_data, process_derivative_data
 from models.bond_pricing import BondPricing
@@ -12,39 +13,30 @@ from models.swap_pricing import SwapPricing
 from optimization.portfolio_optimization import PortfolioOptimization
 from visualization.visual_analysis import plot_metrics
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+# ✅ Load API keys from .env
+load_dotenv()
 
 # Streamlit UI
 st.title("📊 Portfolio Optimization App")
 
-# ✅ Load API keys from environment variables
+# Retrieve API keys securely
 fred_api_key = os.getenv("FRED_API_KEY")
 alpha_vantage_api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
 swap_api_key = os.getenv("SWAP_API_KEY")
 
 if not fred_api_key or not alpha_vantage_api_key or not swap_api_key:
-    st.error("⚠️ API keys are missing. Please set them in your environment variables.")
+    st.error("⚠️ API keys are missing. Set them in the `.env` file and restart the app.")
 else:
-    # Fetch Data Button
     if st.button("🚀 Fetch Data & Optimize Portfolio"):
         data_fetcher = DataFetcher(fred_api_key, alpha_vantage_api_key, swap_api_key)
-
-        st.write("📥 Fetching bond yields...")
+        
+        st.write("📥 Fetching data...")
         bond_data = data_fetcher.fetch_bond_yields()
-
-        st.write("📥 Fetching options data...")
         options_data = data_fetcher.fetch_options_data("IBM")
-
-        st.write("📥 Fetching futures data...")
         futures_data = data_fetcher.fetch_futures_data("IBM")
-
-        st.write("📥 Fetching swap data...")
         swap_data = data_fetcher.fetch_swap_rates()
 
         # Process Data
-        st.write("🔄 Processing data...")
         processed_bond_data = process_bond_data(bond_data)
         processed_derivative_data = process_derivative_data({
             "options": options_data,
@@ -53,7 +45,6 @@ else:
         })
 
         # Initialize Pricing Models
-        st.write("🧮 Calculating prices...")
         bond_pricing = BondPricing(1000, 0.05, 10, 0.03)
         option_pricing = OptionPricing(100, 100, 1, 0.03, 0.20)
         futures_pricing = FuturesPricing(100, 100, 1, 0.03, 0.20)
