@@ -68,7 +68,9 @@ if st.button("🔍 Fetch Data & Optimize"):
     if swap_data.empty:
         st.warning("⚠️ No Treasury swap data available. Using default values.")
         swap_data = pd.DataFrame({"security_desc": ["US Treasury Bonds"], "avg_interest_rate_amt": [0.02]})
-    swap_data = swap_data.rename(columns={"avg_interest_rate_amt": "rate"})
+    
+    if "avg_interest_rate_amt" in swap_data.columns:
+        swap_data = swap_data.rename(columns={"avg_interest_rate_amt": "rate"})
 
     # **Update Asset Labels**
     bond_label = f"Bonds ({selected_bond})"
