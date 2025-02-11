@@ -1,5 +1,6 @@
 import math
 from scipy.stats import norm
+from scipy import stats
 
 class OptionPricing:
     def __init__(self, spot_price, strike_price, time_to_maturity, risk_free_rate, volatility):
