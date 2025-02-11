@@ -13,19 +13,23 @@ from models.swap_pricing import SwapPricing
 from optimization.portfolio_optimization import PortfolioOptimization
 from visualization.visual_analysis import plot_metrics
 
-# ✅ Load API keys from .env
+# ✅ Load API keys from .env (if available)
 load_dotenv()
 
 # Streamlit UI
 st.title("📊 Portfolio Optimization App")
 
-# Retrieve API keys securely
-fred_api_key = os.getenv("FRED_API_KEY")
-alpha_vantage_api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
-swap_api_key = os.getenv("SWAP_API_KEY")
+# Sidebar for API keys (override if needed)
+st.sidebar.header("🔑 API Key Configuration")
 
+fred_api_key = st.sidebar.text_input("FRED API Key", os.getenv("FRED_API_KEY", ""))
+alpha_vantage_api_key = st.sidebar.text_input("AlphaVantage API Key", os.getenv("ALPHA_VANTAGE_API_KEY", ""))
+swap_api_key = st.sidebar.text_input("Swap API Key", os.getenv("SWAP_API_KEY", ""))
+
+# ✅ Ensure API keys are provided
 if not fred_api_key or not alpha_vantage_api_key or not swap_api_key:
-    st.error("⚠️ API keys are missing. Set them in the `.env` file and restart the app.")
+    st.error("⚠️ Please enter all required API keys in the sidebar.")
+
 else:
     if st.button("🚀 Fetch Data & Optimize Portfolio"):
         data_fetcher = DataFetcher(fred_api_key, alpha_vantage_api_key, swap_api_key)
